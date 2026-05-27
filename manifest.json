@@ -1,0 +1,20 @@
+{
+  "short_name": "Warden",
+  "name": "The Home Warden",
+  "icons": [
+    {
+      "src": "/app_icon_main.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/app_icon_main.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#FACC15",
+  "background_color": "#000000"
+}

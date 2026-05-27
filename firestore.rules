@@ -1,0 +1,120 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default Deny All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // --- REUSABLE SECURITY UTILITY FUNCTIONS ---
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- ENTITY SCHEMA VALIDATORS ---
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'email'])
+        && data.uid is string 
+        && data.uid.size() <= 128
+        && data.uid == request.auth.uid
+        && data.email is string 
+        && data.email.size() <= 200;
+    }
+
+    function isValidZone(data) {
+      return data.keys().hasAll(['id', 'name', 'score', 'lastMaintained', 'intervalMonths', 'tasks'])
+        && data.id is string
+        && data.id.size() <= 128
+        && data.name is string
+        && data.name.size() <= 100
+        && data.score is int
+        && data.score >= 0
+        && data.score <= 100
+        && data.lastMaintained is string
+        && data.lastMaintained.size() <= 100
+        && data.intervalMonths is int
+        && data.intervalMonths >= 0
+        && data.tasks is list
+        && data.tasks.size() <= 50;
+    }
+
+    function isValidInventoryItem(data) {
+      return data.keys().hasAll(['id', 'name', 'category', 'type', 'quantity', 'unit', 'health', 'lastUpdated'])
+        && data.id is string
+        && data.id.size() <= 128
+        && data.name is string
+        && data.name.size() <= 200
+        && data.category is string
+        && data.category.size() <= 100
+        && (data.type == 'Tool' || data.type == 'Consumable')
+        && data.quantity is int
+        && data.quantity >= 0
+        && data.unit is string
+        && data.unit.size() <= 50
+        && data.health is int
+        && data.health >= 0
+        && data.health <= 100
+        && data.lastUpdated is string
+        && data.lastUpdated.size() <= 100;
+    }
+
+    function isValidDiagnosis(data) {
+      return data.keys().hasAll(['problem', 'diagnosis', 'shoppingList', 'toolsNeeded', 'steps', 'timestamp'])
+        && data.problem is string
+        && data.problem.size() <= 2000
+        && data.diagnosis is string
+        && data.diagnosis.size() <= 8000
+        && data.shoppingList is list
+        && data.shoppingList.size() <= 100
+        && data.toolsNeeded is list
+        && data.toolsNeeded.size() <= 100
+        && data.steps is list
+        && data.steps.size() <= 100
+        && data.timestamp is string
+        && data.timestamp.size() <= 100;
+    }
+
+    // --- COLLECTION PATH MATCHES ---
+
+    // 1. User document
+    match /users/{userId} {
+      allow read, delete: if isOwner(userId);
+      allow create, update: if isOwner(userId) && isValidUser(incoming());
+
+      // 2. Maintenance Zones Sub-collection
+      match /zones/{zoneId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(zoneId) && isValidZone(incoming());
+      }
+
+      // 3. Inventory Warehouse Sub-collection
+      match /inventory/{itemId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(itemId) && isValidInventoryItem(incoming());
+      }
+
+      // 4. Diagnostic History Sub-collection
+      match /history/{historyId} {
+        allow read, delete: if isOwner(userId);
+        allow create, update: if isOwner(userId) && isValidId(historyId) && isValidDiagnosis(incoming());
+      }
+    }
+  }
+}

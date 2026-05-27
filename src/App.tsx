@@ -308,29 +308,29 @@ export default function App() {
 
       {/* Bottom Nav */}
       <nav className="fixed bottom-0 left-0 right-0 bg-slate-900/90 backdrop-blur-xl border-t border-slate-800/80 z-50">
-        <div className="max-w-md mx-auto grid grid-cols-4 h-20">
+        <div className="max-w-md mx-auto grid grid-cols-4 h-14">
           <NavButton
             active={currentView === 'dashboard'}
             onClick={() => setCurrentView('dashboard')}
-            icon={<LayoutDashboard size={22} />}
+            icon={<LayoutDashboard size={18} />}
             label="Home"
           />
           <NavButton
             active={currentView === 'warehouse'}
             onClick={() => setCurrentView('warehouse')}
-            icon={<Package size={22} />}
+            icon={<Package size={18} />}
             label="Gudang"
           />
           <NavButton
             active={currentView === 'repair'}
             onClick={() => setCurrentView('repair')}
-            icon={<Wrench size={22} />}
+            icon={<Wrench size={18} />}
             label="Reparasi"
           />
           <NavButton
             active={currentView === 'history'}
             onClick={() => setCurrentView('history')}
-            icon={<Clock size={22} />}
+            icon={<Clock size={18} />}
             label="Arsip"
           />
         </div>
@@ -343,7 +343,7 @@ function NavButton({ active, icon, label, onClick }: { active: boolean; icon: Re
   return (
     <button
       onClick={onClick}
-      className={`flex flex-col items-center justify-center gap-1 transition-all relative overflow-hidden cursor-pointer ${
+      className={`flex flex-col items-center justify-center gap-0.5 transition-all relative overflow-hidden cursor-pointer ${
         active ? 'text-indigo-400' : 'text-slate-500 hover:text-slate-400'
       }`}
     >
@@ -354,7 +354,7 @@ function NavButton({ active, icon, label, onClick }: { active: boolean; icon: Re
         />
       )}
       {icon}
-      <span className="text-[10px] uppercase font-bold tracking-widest">{label}</span>
+      <span className="text-[9px] uppercase font-bold tracking-widest">{label}</span>
       {active && <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-1 bg-indigo-500 rounded-full" />}
     </button>
   );

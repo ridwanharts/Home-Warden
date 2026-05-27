@@ -8,10 +8,10 @@ interface Props {
 
 export default function History({ history }: Props) {
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-4 pb-16">
       <div className="flex items-center justify-between">
-        <h2 className="text-3xl font-bold tracking-tight uppercase flex items-center gap-3">
-          <HistoryIcon className="text-indigo-400" size={28} />
+        <h2 className="text-xl font-bold tracking-tight uppercase flex items-center gap-2">
+          <HistoryIcon className="text-indigo-400" size={20} />
           Logs
         </h2>
         <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">{history.length} Entries</span>

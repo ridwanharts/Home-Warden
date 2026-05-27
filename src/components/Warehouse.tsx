@@ -443,12 +443,12 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
   }
 
   return (
-    <div className="space-y-6 pb-24">
+    <div className="space-y-4 pb-16">
       {/* Header & Search */}
-      <section className="space-y-6">
+      <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-3xl font-bold tracking-tight uppercase flex items-center gap-3">
-            <Package className="text-indigo-400" size={28} />
+          <h2 className="text-xl font-bold tracking-tight uppercase flex items-center gap-2">
+            <Package className="text-indigo-400" size={20} />
             Warehouse
           </h2>
           <div className="flex items-center gap-3">
@@ -464,13 +464,13 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
         </div>
         
         <div className="relative group">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={20} />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={16} />
           <input 
             type="text" 
             placeholder="Cari alat atau bahan..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-900/60 border border-slate-800 py-4 pl-12 pr-4 rounded-2xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans text-sm backdrop-blur-sm"
+            className="w-full bg-slate-900/60 border border-slate-800 py-2.5 pl-10 pr-3.5 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans text-sm backdrop-blur-sm"
           />
         </div>
       </section>

@@ -119,7 +119,7 @@ export default function Rooms({ rooms, onAddRoom, onUpdateRoom, onDeleteRoom }: 
       case 'warning':
         return (
           <span className="flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 font-extrabold border border-amber-500/10 uppercase tracking-wider">
-            <AlertTriangle size={10} /> Cek Rutin
+            <AlertTriangle size={10} /> Harus Dicek
           </span>
         );
       case 'broken':
@@ -501,7 +501,7 @@ export default function Rooms({ rooms, onAddRoom, onUpdateRoom, onDeleteRoom }: 
                             : 'bg-slate-950/60 border-slate-800/80 text-slate-400'
                         }`}
                       >
-                        MESTINE CEK
+                        HARUS DICEK
                       </button>
                       <button
                         type="button"
@@ -619,7 +619,7 @@ export default function Rooms({ rooms, onAddRoom, onUpdateRoom, onDeleteRoom }: 
                                 : 'bg-slate-950/60 hover:bg-slate-900 text-slate-400 border border-transparent'
                             }`}
                           >
-                            Cek Rutin
+                            Harus Dicek
                           </button>
                           <button
                             type="button"

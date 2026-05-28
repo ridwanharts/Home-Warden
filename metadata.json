@@ -1,5 +1,5 @@
 {
-  "name": "Mandor Rumah",
+  "name": "Rumah Bapak",
   "description": "Digital toolbox, home health tracking, and AI-powered DIY repair mentor for the proactive homeowner.",
   "requestFramePermissions": ["camera"],
   "majorCapabilities": ["PWA", "AI Home Maintenance", "Inventory Management"]

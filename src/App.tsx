@@ -308,7 +308,7 @@ export default function App() {
             {/* Center Yellow/Gold Star */}
             <polygon points="12,7 13.5,10.2 17,10.2 14.1,12.3 15.2,15.6 12,13.5 8.8,15.6 9.9,12.3 7,10.2 10.5,10.2" fill="#FDE047" stroke="#EAB308" strokeWidth="0.5" />
           </svg>
-          <h1 className="font-extrabold tracking-wider text-[11px] sm:text-xs uppercase text-amber-400">Mandor Rumah</h1>
+          <h1 className="font-extrabold tracking-wider text-[11px] sm:text-xs uppercase text-amber-400">Rumah Bapak</h1>
         </div>
 
         {!loadingAuth && (

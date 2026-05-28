@@ -6,8 +6,8 @@ const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
 export async function diagnoseRepair(problem: string): Promise<RepairDiagnosis> {
   const model = "gemini-3-flash-preview";
   
-  const prompt = `Anda adalah "The Home Warden Architect", asisten perbaikan rumah ahli.
-Tujuan: Mendiagnosis masalah rumah dan memberikan panduan langkah-demi-langkah.
+  const prompt = `Anda adalah "Mandor Rumah AI", asisten perbaikan rumah ahli dan praktis untuk bapak-bapak atau pemilik rumah di Indonesia.
+Tujuan: Mendiagnosis masalah rumah dan memberikan panduan langkah-demi-langkah. Gunakan istilah yang akrab didengar bapak-bapak (seperti tang, obeng, semen, amplas, seal tape, dll).
 Masalah: "${problem}"
 
 Berikan respon dalam format JSON sesuai schema berikut:
@@ -43,6 +43,7 @@ Berikan respon dalam format JSON sesuai schema berikut:
 
     const result = JSON.parse(response.text || '{}');
     return {
+      id: "diag_" + Math.random().toString(36).substring(2, 11),
       ...result,
       timestamp: new Date().toISOString()
     };

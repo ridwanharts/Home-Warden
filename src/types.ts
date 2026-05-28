@@ -10,6 +10,7 @@ export interface InventoryItem {
   health: number; // 0-100 for tools
   lastUpdated: string;
   imageUrl?: string;
+  entryDate?: string; // Tanggal pembelian atau masuk gudang
 }
 
 export interface MaintenanceZone {
@@ -22,6 +23,7 @@ export interface MaintenanceZone {
 }
 
 export interface RepairDiagnosis {
+  id: string;
   problem: string;
   diagnosis: string;
   shoppingList: string[];
@@ -31,4 +33,20 @@ export interface RepairDiagnosis {
   timestamp: string;
 }
 
-export type View = 'dashboard' | 'warehouse' | 'repair' | 'history';
+export interface RoomItem {
+  id: string;
+  name: string;
+  status: 'good' | 'warning' | 'broken'; // 'good' = Baik, 'warning' = Butuh Perhatian/Pengecekan, 'broken' = Rusak/Butuh Service
+  lastChecked: string;
+  notes?: string;
+}
+
+export interface HouseRoom {
+  id: string;
+  name: string;
+  type: string; // e.g., 'Kamar Mandi', 'Kamar Tidur', 'Dapur', 'Ruang Keluarga'
+  items: RoomItem[];
+  createdAt: string;
+}
+
+export type View = 'dashboard' | 'rooms' | 'warehouse' | 'repair' | 'history';

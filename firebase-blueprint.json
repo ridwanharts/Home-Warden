@@ -60,6 +60,19 @@
         "timestamp": { "type": "string", "format": "date-time", "description": "When this was diagnosed" }
       },
       "required": ["problem", "diagnosis", "shoppingList", "toolsNeeded", "steps", "timestamp"]
+    },
+    "HouseRoom": {
+      "title": "HouseRoom",
+      "description": "A physical room in the house containing items to inspect",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Room unique ID" },
+        "name": { "type": "string", "description": "Name of the room" },
+        "type": { "type": "string", "description": "Type/category of the room" },
+        "items": { "type": "array", "description": "List of physical items inside the room" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp of creation" }
+      },
+      "required": ["id", "name", "type", "items", "createdAt"]
     }
   },
   "firestore": {
@@ -78,6 +91,10 @@
     "users/{userId}/history/{historyId}": {
       "schema": "RepairDiagnosis",
       "description": "History of AI-powered diagnostic sessions"
+    },
+    "users/{userId}/rooms/{roomId}": {
+      "schema": "HouseRoom",
+      "description": "User specific rooms configuration and item lists"
     }
   }
 }

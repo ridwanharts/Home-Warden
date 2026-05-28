@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { InventoryItem } from '../types';
-import { Package, Plus, Minus, Search, Wrench, Pipette as Tape, AlertTriangle, X, Camera, Image, Trash2, ArrowLeft, Check } from 'lucide-react';
+import { Package, Plus, Minus, Search, Wrench, Pipette as Tape, AlertTriangle, X, Camera, Image, Trash2, ArrowLeft, Check, Filter } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -8,6 +8,7 @@ interface Props {
   onUpdateQuantity: (id: string, delta: number) => void;
   onAddItem: (item: Omit<InventoryItem, 'id' | 'lastUpdated'>) => void;
   onUpdateItem: (item: InventoryItem) => void;
+  onDeleteItem?: (id: string) => void;
 }
 
 // Reusable dynamic Image Picker component with camera and file upload capability
@@ -203,8 +204,25 @@ function ImagePicker({
   );
 }
 
-export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUpdateItem }: Props) {
+const getCategoryColor = (category: string) => {
+  const norm = category.toLowerCase();
+  if (norm.includes('listrik')) return 'bg-amber-400';
+  if (norm.includes('plumb') || norm.includes('pipa') || norm.includes('talang')) return 'bg-sky-400';
+  if (norm.includes('power') || norm.includes('mesin') || norm.includes('alat berat')) return 'bg-orange-500';
+  if (norm.includes('atap')) return 'bg-teal-400';
+  if (norm.includes('aksesoris')) return 'bg-purple-500';
+  if (norm.includes('hard') || norm.includes('kayu') || norm.includes('besi')) return 'bg-slate-400';
+  return 'bg-indigo-500';
+};
+
+export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUpdateItem, onDeleteItem }: Props) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [showSearch, setShowSearch] = useState(false);
+  const [showFilter, setShowFilter] = useState(false);
+  const [activeFilterCategory, setActiveFilterCategory] = useState('ALL');
+  const [activeFilterType, setActiveFilterType] = useState('ALL');
+  const [filterStartDate, setFilterStartDate] = useState('');
+  const [filterEndDate, setFilterEndDate] = useState('');
   const [isAdding, setIsAdding] = useState(false);
   const [editingItem, setEditingItem] = useState<InventoryItem | null>(null);
   
@@ -216,6 +234,7 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
   const [unit, setUnit] = useState('Pcs');
   const [health, setHealth] = useState(100);
   const [imageUrl, setImageUrl] = useState('');
+  const [entryDate, setEntryDate] = useState(() => new Date().toISOString().split('T')[0]);
 
   // Edit Form State
   const [editName, setEditName] = useState('');
@@ -225,6 +244,7 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
   const [editUnit, setEditUnit] = useState('Pcs');
   const [editHealth, setEditHealth] = useState(100);
   const [editImageUrl, setEditImageUrl] = useState('');
+  const [editEntryDate, setEditEntryDate] = useState('');
 
   // Handle setting active edited item
   const startEditing = (item: InventoryItem) => {
@@ -236,12 +256,31 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
     setEditUnit(item.unit);
     setEditHealth(item.health);
     setEditImageUrl(item.imageUrl || '');
+    setEditEntryDate(item.entryDate || new Date().toISOString().split('T')[0]);
   };
 
-  const filteredItems = inventory.filter(item => 
-    item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    item.category.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredItems = inventory.filter(item => {
+    const matchesSearch = !searchTerm.trim() || 
+      item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesCategory = activeFilterCategory === 'ALL' || item.category === activeFilterCategory;
+    const matchesType = activeFilterType === 'ALL' || item.type === activeFilterType;
+    
+    let matchesDate = true;
+    if (item.entryDate) {
+      if (filterStartDate) {
+        matchesDate = matchesDate && item.entryDate >= filterStartDate;
+      }
+      if (filterEndDate) {
+        matchesDate = matchesDate && item.entryDate <= filterEndDate;
+      }
+    } else if (filterStartDate || filterEndDate) {
+      matchesDate = false;
+    }
+    
+    return matchesSearch && matchesCategory && matchesType && matchesDate;
+  });
 
   const handleSubmitAdd = (e: React.FormEvent) => {
     e.preventDefault();
@@ -254,7 +293,8 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
       quantity,
       unit,
       health: type === 'Tool' ? health : 100,
-      imageUrl: imageUrl || undefined
+      imageUrl: imageUrl || undefined,
+      entryDate: entryDate || undefined
     });
 
     // Reset Form State
@@ -265,6 +305,7 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
     setUnit('Pcs');
     setHealth(100);
     setImageUrl('');
+    setEntryDate(new Date().toISOString().split('T')[0]);
     setIsAdding(false);
   };
 
@@ -280,7 +321,8 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
       quantity: editQuantity,
       unit: editUnit,
       health: editType === 'Tool' ? editHealth : 100,
-      imageUrl: editImageUrl || undefined
+      imageUrl: editImageUrl || undefined,
+      entryDate: editEntryDate || undefined
     });
 
     setEditingItem(null);
@@ -418,6 +460,17 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
               )}
             </div>
 
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Tanggal Masuk / Pembelian</label>
+              <input
+                type="date"
+                required
+                value={editEntryDate}
+                onChange={e => setEditEntryDate(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+              />
+            </div>
+
             {/* Photo Picker integration */}
             <ImagePicker value={editImageUrl} onChange={setEditImageUrl} />
           </div>
@@ -437,6 +490,23 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
               Simpan Perubahan
             </button>
           </div>
+
+          {onDeleteItem && (
+            <div className="pt-3 border-t border-slate-800/60 mt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (confirm(`Apakah Anda yakin ingin menghapus item "${editingItem.name}" dari Gudang secara permanen?`)) {
+                    onDeleteItem(editingItem.id);
+                    setEditingItem(null);
+                  }
+                }}
+                className="w-full bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/30 font-bold py-3 px-4 rounded-xl text-[10px] uppercase tracking-wider transition-all cursor-pointer text-center flex items-center justify-center gap-1.5"
+              >
+                <Trash2 size={13} /> Hapus Item dari Gudang
+              </button>
+            </div>
+          )}
         </motion.form>
       </div>
     );
@@ -445,34 +515,185 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
   return (
     <div className="space-y-4 pb-16">
       {/* Header & Search */}
-      <section className="space-y-4">
+      <section className="space-y-3">
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold tracking-tight uppercase flex items-center gap-2">
             <Package className="text-indigo-400" size={20} />
-            Warehouse
+            Gudang Utama
           </h2>
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest hidden sm:inline">{inventory.length} SKUs</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest hidden sm:inline mr-1">{inventory.length} SKUs</span>
+            
+            {/* Toggle Search Button */}
+            <button
+              onClick={() => {
+                setShowSearch(!showSearch);
+                if (showSearch) {
+                  setSearchTerm(''); // Clear text search when hidden
+                }
+              }}
+              className={`flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
+                showSearch 
+                  ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' 
+                  : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+              title="Cari Barang"
+            >
+              <Search size={16} />
+            </button>
+
+            {/* Toggle Filter Button */}
+            <button
+              onClick={() => setShowFilter(!showFilter)}
+              className={`flex items-center justify-center p-2 rounded-xl border transition-all cursor-pointer ${
+                showFilter 
+                  ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30' 
+                  : 'bg-slate-900/60 text-slate-400 border-slate-800 hover:text-slate-200 hover:bg-slate-800'
+              }`}
+              title="Filter Kategori"
+            >
+              <Filter size={16} />
+            </button>
+
+            {/* Add Item Button */}
             <button
               onClick={() => setIsAdding(!isAdding)}
-              className="flex items-center justify-center p-2 rounded-xl bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/30 transition-all font-bold text-xs uppercase cursor-pointer"
+              className={`flex items-center justify-center p-2 rounded-xl transition-all font-bold text-xs uppercase cursor-pointer border ${
+                isAdding 
+                  ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 hover:bg-rose-600/30' 
+                  : 'bg-indigo-600/20 text-indigo-400 border-indigo-500/30 hover:bg-indigo-600/30'
+              }`}
               title="Tambah Item Baru"
             >
-              {isAdding ? <X size={18} /> : <Plus size={18} />}
+              {isAdding ? <X size={16} /> : <Plus size={16} />}
             </button>
           </div>
         </div>
         
-        <div className="relative group">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={16} />
-          <input 
-            type="text" 
-            placeholder="Cari alat atau bahan..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-slate-900/60 border border-slate-800 py-2.5 pl-10 pr-3.5 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans text-sm backdrop-blur-sm"
-          />
-        </div>
+        {/* Collapsible Search Input */}
+        {showSearch && (
+          <motion.div 
+            initial={{ opacity: 0, y: -6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="relative group overflow-hidden"
+          >
+            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-indigo-400 transition-colors" size={16} />
+            <input 
+              type="text" 
+              placeholder="Cari alat atau bahan..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-slate-900/60 border border-slate-800 py-2.5 pl-10 pr-3.5 rounded-xl focus:outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all font-sans text-sm backdrop-blur-sm"
+              autoFocus
+            />
+          </motion.div>
+        )}
+
+        {/* Collapsible Filters Input */}
+        {showFilter && (
+          <motion.div
+            initial={{ opacity: 0, y: -6, height: 0 }}
+            animate={{ opacity: 1, y: 0, height: 'auto' }}
+            exit={{ opacity: 0, y: -6, height: 0 }}
+            transition={{ duration: 0.15 }}
+            className="glass-card !bg-slate-900/40 border border-slate-800 p-3 rounded-xl space-y-3 overflow-hidden text-left"
+          >
+            <div className="space-y-1.5">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Filter Kategori</span>
+              <div className="flex flex-wrap gap-1.5">
+                {[
+                  { value: 'ALL', label: 'Semua' },
+                  { value: 'Hardware', label: 'Hardware' },
+                  { value: 'Plumbing', label: 'Plumbing' },
+                  { value: 'Power Tools', label: 'Power Tools' },
+                  { value: 'Kelistrikan', label: 'Kelistrikan' },
+                  { value: 'Atap & Talang', label: 'Atap' },
+                  { value: 'Aksesoris Rumah', label: 'Aksesoris' }
+                ].map(cat => (
+                  <button
+                    type="button"
+                    key={cat.value}
+                    onClick={() => setActiveFilterCategory(cat.value)}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                      activeFilterCategory === cat.value
+                        ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40'
+                        : 'bg-slate-950/40 text-slate-400 border-slate-800/80 hover:text-slate-200'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2 border-t border-slate-800/40">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Tipe Barang</span>
+              <div className="flex gap-1.5">
+                {[
+                  { value: 'ALL', label: 'Semua Tipe' },
+                  { value: 'Tool', label: 'Alat (Tool)' },
+                  { value: 'Consumable', label: 'Bahan (Consumable)' }
+                ].map(typeOpt => (
+                  <button
+                    type="button"
+                    key={typeOpt.value}
+                    onClick={() => setActiveFilterType(typeOpt.value)}
+                    className={`px-2.5 py-0.5 rounded-md text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+                      activeFilterType === typeOpt.value
+                        ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40'
+                        : 'bg-slate-950/40 text-slate-400 border-slate-800/80 hover:text-slate-200'
+                    }`}
+                  >
+                    {typeOpt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-1.5 pt-2 border-t border-slate-800/40">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block">Tanggal Masuk / Pembelian</span>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1">Mulai</label>
+                  <input
+                    type="date"
+                    value={filterStartDate}
+                    onChange={(e) => setFilterStartDate(e.target.value)}
+                    className="w-full bg-slate-950/60 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[8px] font-bold text-slate-500 uppercase tracking-wider mb-1">Hingga</label>
+                  <input
+                    type="date"
+                    value={filterEndDate}
+                    onChange={(e) => setFilterEndDate(e.target.value)}
+                    className="w-full bg-slate-950/60 border border-slate-800 rounded-lg p-2 text-xs text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {(activeFilterCategory !== 'ALL' || activeFilterType !== 'ALL' || filterStartDate || filterEndDate) && (
+              <div className="flex justify-end pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveFilterCategory('ALL');
+                    setActiveFilterType('ALL');
+                    setFilterStartDate('');
+                    setFilterEndDate('');
+                  }}
+                  className="text-[8px] font-bold text-indigo-400 hover:text-indigo-300 uppercase tracking-wider cursor-pointer"
+                >
+                  Reset Filter
+                </button>
+              </div>
+            )}
+          </motion.div>
+        )}
       </section>
 
       {/* Expandable Add Item Form */}
@@ -593,6 +814,17 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
               )}
             </div>
 
+            <div>
+              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Tanggal Masuk / Pembelian</label>
+              <input
+                type="date"
+                required
+                value={entryDate}
+                onChange={e => setEntryDate(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors cursor-pointer"
+              />
+            </div>
+
             {/* Photo Picker integration */}
             <ImagePicker value={imageUrl} onChange={setImageUrl} />
           </div>
@@ -612,8 +844,10 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
           <div 
             key={item.id}
             onClick={() => startEditing(item)}
-            className="glass-card !p-3.5 transition-all hover:bg-slate-900/60 active:scale-[0.99] cursor-pointer group flex items-center justify-between gap-4 border border-slate-800/80 hover:border-indigo-500/20"
+            className="glass-card !p-3.5 !pl-5 transition-all hover:bg-slate-900/60 active:scale-[0.99] cursor-pointer group flex items-center justify-between gap-4 border border-slate-800/80 hover:border-indigo-500/20 relative overflow-hidden"
           >
+            {/* Color Strip/Ribbon representing Category */}
+            <div className={`absolute left-0 top-0 bottom-0 w-[5px] ${getCategoryColor(item.category)}`} />
             {/* Visual Thumbnail & Metadata */}
             <div className="flex items-center gap-3.5 min-w-0 flex-1">
               {/* Photo representation */}
@@ -635,7 +869,7 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
                 <h4 className="font-bold text-sm text-slate-100 group-hover:text-indigo-400 transition-colors truncate">
                   {item.name}
                 </h4>
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
                   <span className={`text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest ${
                     item.type === 'Tool' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/10' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10'
                   }`}>
@@ -644,6 +878,11 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
                   {item.type === 'Tool' && (
                     <span className={`text-[9px] font-bold ${item.health > 80 ? 'text-emerald-500' : item.health > 40 ? 'text-amber-500' : 'text-rose-500'}`}>
                       {item.health}% Kondisi
+                    </span>
+                  )}
+                  {item.entryDate && (
+                    <span className="text-[9px] font-semibold text-slate-500/80 flex items-center gap-1 whitespace-nowrap">
+                      • Masuk: {item.entryDate}
                     </span>
                   )}
                 </div>
@@ -690,7 +929,7 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
       {inventory.some(i => i.type === 'Consumable' && i.quantity < 5) && (
         <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-2xl flex items-center gap-4">
           <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.8)] animate-pulse" />
-          <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Peringatan: Beberapa stok bahan kritis mandiri</p>
+          <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Peringatan: Beberapa stok menipis</p>
         </div>
       )}
     </div>

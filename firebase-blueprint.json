@@ -38,7 +38,7 @@
         "id": { "type": "string", "description": "Unique SKU or item ID" },
         "name": { "type": "string", "description": "Human-readable name of the item" },
         "category": { "type": "string", "description": "Item category classification" },
-        "type": { "type": "string", "enum": ["Tool", "Consumable"], "description": "Kind of resource" },
+        "type": { "type": "string", "enum": ["Tool", "Consumable", "Shopping"], "description": "Kind of resource" },
         "quantity": { "type": "number", "description": "Stock count" },
         "unit": { "type": "string", "description": "Quantity metric (e.g., Units, Roll, Pcs)" },
         "health": { "type": "number", "description": "Condition status from 0 to 100" },

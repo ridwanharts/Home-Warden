@@ -47,7 +47,7 @@ export function subscribeZones(userId: string, onSuccess: (zones: MaintenanceZon
   return onSnapshot(q, (snapshot) => {
     const list: MaintenanceZone[] = [];
     snapshot.forEach((docSnap) => {
-      list.push(docSnap.data() as MaintenanceZone);
+      list.push({ id: docSnap.id, ...docSnap.data() } as MaintenanceZone);
     });
     onSuccess(list);
   }, (error) => {
@@ -62,7 +62,7 @@ export function subscribeInventory(userId: string, onSuccess: (items: InventoryI
   return onSnapshot(q, (snapshot) => {
     const list: InventoryItem[] = [];
     snapshot.forEach((docSnap) => {
-      list.push(docSnap.data() as InventoryItem);
+      list.push({ id: docSnap.id, ...docSnap.data() } as InventoryItem);
     });
     onSuccess(list);
   }, (error) => {
@@ -77,7 +77,7 @@ export function subscribeHistory(userId: string, onSuccess: (history: RepairDiag
   return onSnapshot(q, (snapshot) => {
     const list: RepairDiagnosis[] = [];
     snapshot.forEach((docSnap) => {
-      list.push(docSnap.data() as RepairDiagnosis);
+      list.push({ id: docSnap.id, ...docSnap.data() } as RepairDiagnosis);
     });
     // Sort by timestamp descending
     list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
@@ -114,7 +114,7 @@ export function subscribeRooms(userId: string, onSuccess: (rooms: HouseRoom[]) =
   return onSnapshot(q, (snapshot) => {
     const list: HouseRoom[] = [];
     snapshot.forEach((docSnap) => {
-      list.push(docSnap.data() as HouseRoom);
+      list.push({ id: docSnap.id, ...docSnap.data() } as HouseRoom);
     });
     // Sort by createdAt ascending or name ascending
     list.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());

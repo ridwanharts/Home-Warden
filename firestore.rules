@@ -63,7 +63,7 @@ service cloud.firestore {
         && data.name.size() <= 200
         && data.category is string
         && data.category.size() <= 100
-        && (data.type == 'Tool' || data.type == 'Consumable')
+        && (data.type == 'Tool' || data.type == 'Consumable' || data.type == 'Shopping')
         && data.quantity is int
         && data.quantity >= 0
         && data.unit is string

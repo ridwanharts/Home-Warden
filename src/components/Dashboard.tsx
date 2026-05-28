@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MaintenanceZone, InventoryItem, HouseRoom, RepairDiagnosis, View } from '../types';
 import {
   ShieldCheck,
@@ -13,9 +13,14 @@ import {
   HelpCircle,
   Activity,
   Layers,
-  Calendar
+  Calendar,
+  Plus,
+  Trash2,
+  Edit2,
+  Check,
+  X
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   zones: MaintenanceZone[];
@@ -24,6 +29,9 @@ interface Props {
   history: RepairDiagnosis[];
   onInspect?: () => void;
   onNavigate?: (view: View) => void;
+  onAddZone?: (zone: Omit<MaintenanceZone, 'id'>) => void;
+  onUpdateZone?: (zone: MaintenanceZone) => void;
+  onDeleteZone?: (zoneId: string) => void;
 }
 
 export default function Dashboard({
@@ -32,8 +40,74 @@ export default function Dashboard({
   rooms = [],
   history = [],
   onInspect,
-  onNavigate
+  onNavigate,
+  onAddZone,
+  onUpdateZone,
+  onDeleteZone
 }: Props) {
+  // Modal & Edit state for customized maintenance (Point 2)
+  const [isZoneModalOpen, setIsZoneModalOpen] = useState(false);
+  const [editingZone, setEditingZone] = useState<MaintenanceZone | null>(null);
+  const [zoneName, setZoneName] = useState('');
+  const [zoneInterval, setZoneInterval] = useState(6);
+  const [zoneScore, setZoneScore] = useState(100);
+  const [zoneTasks, setZoneTasks] = useState('');
+
+  const handleOpenAddModal = () => {
+    setEditingZone(null);
+    setZoneName('');
+    setZoneInterval(6);
+    setZoneScore(100);
+    setZoneTasks('');
+    setIsZoneModalOpen(true);
+  };
+
+  const handleOpenEditModal = (zone: MaintenanceZone) => {
+    setEditingZone(zone);
+    setZoneName(zone.name);
+    setZoneInterval(zone.intervalMonths);
+    setZoneScore(zone.score);
+    setZoneTasks(zone.tasks.join(', '));
+    setIsZoneModalOpen(true);
+  };
+
+  const handleSaveZone = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!zoneName.trim()) return;
+
+    const tasksArray = zoneTasks
+      .split(',')
+      .map(t => t.trim())
+      .filter(t => t.length > 0);
+
+    if (editingZone) {
+      onUpdateZone?.({
+        ...editingZone,
+        name: zoneName.trim(),
+        intervalMonths: Number(zoneInterval),
+        score: Number(zoneScore),
+        tasks: tasksArray
+      });
+    } else {
+      onAddZone?.({
+        name: zoneName.trim(),
+        intervalMonths: Number(zoneInterval),
+        score: Number(zoneScore),
+        lastMaintained: new Date().toISOString(),
+        tasks: tasksArray
+      });
+    }
+    setIsZoneModalOpen(false);
+  };
+
+  const handleCompleteMaintenance = (zone: MaintenanceZone) => {
+    onUpdateZone?.({
+      ...zone,
+      score: 100,
+      lastMaintained: new Date().toISOString()
+    });
+  };
+
   // 1. Calculate General Health Score
   const averageZoneScore = zones.length > 0
     ? Math.round(zones.reduce((acc, z) => acc + z.score, 0) / zones.length)
@@ -278,17 +352,25 @@ export default function Dashboard({
       {/* Active Maintenance Zones Progress */}
       <div className="space-y-4">
         <div className="flex items-center justify-between px-1">
-          <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
-            Jadwal Pemeliharaan Berkala
-          </h3>
-          <span className="text-[9px] font-mono text-slate-500">{zones.length} Zona Dipantau</span>
+          <div className="space-y-0.5">
+            <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">
+              Jadwal Pemeliharaan Berkala
+            </h3>
+            <p className="text-[9px] text-slate-500">Suhu pengingat & siklus perawatan berkala rumah.</p>
+          </div>
+          <button
+            onClick={handleOpenAddModal}
+            className="flex items-center gap-1 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold px-3 py-1.5 rounded-xl text-[9px] uppercase tracking-wider transition-all shadow-md shadow-indigo-600/15 cursor-pointer active:scale-95 text-center shrink-0"
+          >
+            <Plus size={11} /> Tambah Jadwal
+          </button>
         </div>
 
         <div className="grid grid-cols-1 gap-2.5">
           {zones.map((zone) => (
             <div
               key={zone.id}
-              className="bg-slate-900/30 border border-slate-900/60 rounded-2xl py-4 px-5 flex flex-col justify-between gap-3"
+              className="bg-slate-900/30 border border-slate-900/60 rounded-2xl py-4 px-5 flex flex-col justify-between gap-3 shadow-md"
             >
               <div className="flex justify-between items-start">
                 <div>
@@ -321,8 +403,44 @@ export default function Dashboard({
                 </div>
                 {zone.tasks && zone.tasks.length > 0 && (
                   <div className="text-[9px] text-slate-400 capitalize truncate max-w-sm">
-                    Tugas utama: {zone.tasks.slice(0, 3).join(', ')}
+                    Tugas utama: {zone.tasks.join(', ')}
                   </div>
+                )}
+              </div>
+
+              {/* Interactive inline actions (Point 2) */}
+              <div className="flex items-center justify-between border-t border-slate-900/40 pt-2.5 mt-1">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleCompleteMaintenance(zone)}
+                    disabled={zone.score === 100}
+                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all tracking-wider ${
+                      zone.score === 100 
+                        ? 'bg-slate-900/80 text-slate-600 border border-slate-800/20 cursor-not-allowed'
+                        : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 active:scale-95 cursor-pointer'
+                    }`}
+                  >
+                    <Check size={11} /> Selesaikan Riksa
+                  </button>
+                  <button
+                    onClick={() => handleOpenEditModal(zone)}
+                    className="flex items-center gap-1 bg-slate-900 hover:bg-slate-850 text-slate-400 hover:text-slate-300 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-all tracking-wider border border-slate-805 cursor-pointer"
+                  >
+                    <Edit2 size={10} /> Edit
+                  </button>
+                </div>
+
+                {['exterior', 'interior', 'electronics'].indexOf(zone.id) === -1 && (
+                  <button
+                    onClick={() => {
+                      if (confirm(`Hapus jadwal perawatan ${zone.name}?`)) {
+                        onDeleteZone?.(zone.id);
+                      }
+                    }}
+                    className="p-1 px-2 text-slate-500 hover:text-rose-400 rounded-lg bg-slate-900/40 hover:bg-rose-500/10 border border-slate-900/80 hover:border-rose-500/20 transition-all cursor-pointer"
+                  >
+                    <Trash2 size={11} />
+                  </button>
                 )}
               </div>
             </div>
@@ -388,6 +506,110 @@ export default function Dashboard({
           </div>
         )}
       </div>
+
+      {/* Zone Modal (Point 2) */}
+      <AnimatePresence>
+        {isZoneModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="w-full max-w-md bg-slate-900 border border-slate-800/80 rounded-3xl p-5 shadow-2xl space-y-4"
+            >
+              <div className="flex items-center justify-between pb-2 border-b border-slate-800/60">
+                <h3 className="font-extrabold text-xs uppercase text-amber-400 tracking-wider flex items-center gap-1.5">
+                  <Calendar size={13} />
+                  {editingZone ? 'Edit Jadwal Pemeliharaan' : 'Tambah Jadwal Pemeliharaan'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setIsZoneModalOpen(false)}
+                  className="p-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-400 hover:text-white transition-all cursor-pointer"
+                >
+                  <X size={13} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveZone} className="space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    Nama Jadwal / Alat
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={zoneName}
+                    onChange={(e) => setZoneName(e.target.value)}
+                    placeholder="Contoh: Servis AC Ruang Tamu, Kuras Toren Air"
+                    className="w-full bg-slate-950 rounded-xl px-3 py-2 text-xs border border-slate-850 focus:border-indigo-500 focus:outline-none text-slate-200"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1.5 border-none">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      Siklus Rutin
+                    </label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="number"
+                        min="1"
+                        max="48"
+                        required
+                        value={zoneInterval}
+                        onChange={(e) => setZoneInterval(Number(e.target.value))}
+                        className="w-full bg-slate-950 rounded-xl pl-3 pr-12 py-2 text-xs border border-slate-850 focus:border-indigo-500 focus:outline-none text-slate-200"
+                      />
+                      <span className="absolute right-3 text-[9px] text-slate-500 font-bold uppercase">Bulan</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      Integritas / Skor
+                    </label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="number"
+                        min="0"
+                        max="100"
+                        required
+                        value={zoneScore}
+                        onChange={(e) => setZoneScore(Number(e.target.value))}
+                        className="w-full bg-slate-950 rounded-xl pl-3 pr-8 py-2 text-xs border border-slate-850 focus:border-indigo-500 focus:outline-none text-slate-200"
+                      />
+                      <span className="absolute right-3 text-[9px] text-slate-500 font-bold uppercase">%</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                    Daftar Tugas / Cek Poin
+                  </label>
+                  <textarea
+                    rows={2}
+                    value={zoneTasks}
+                    onChange={(e) => setZoneTasks(e.target.value)}
+                    placeholder="Tugas-tugas utama. Contoh: Cuci saringan filter, Cek bocor selang, Cek freon"
+                    className="w-full bg-slate-950 rounded-xl px-3 py-2 text-xs border border-slate-850 focus:border-indigo-500 focus:outline-none text-slate-200 resize-none"
+                  />
+                  <p className="text-[8px] text-slate-500 leading-none">Pisahkan poin tugas dengan tanda koma ( , )</p>
+                </div>
+
+                <button
+                  type="submit"
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold py-2.5 px-4 rounded-xl text-[10px] uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all shadow-lg shadow-indigo-600/10 cursor-pointer text-center active:scale-95"
+                >
+                  <Check size={13} />
+                  Simpan Jadwal Kerja
+                </button>
+              </form>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

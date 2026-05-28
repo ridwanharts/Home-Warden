@@ -154,6 +154,16 @@ export async function remoteDeleteInventoryItem(userId: string, itemId: string) 
   }
 }
 
+// Remote Delete Maintenance Zone
+export async function remoteDeleteZone(userId: string, zoneId: string) {
+  const path = `users/${userId}/zones/${zoneId}`;
+  try {
+    await deleteDoc(doc(db, `users/${userId}/zones`, zoneId));
+  } catch (error) {
+    handleFirestoreError(error, OperationType.WRITE, path);
+  }
+}
+
 // Remote Save History Entry
 export async function remoteSaveHistory(userId: string, entry: RepairDiagnosis) {
   const path = `users/${userId}/history/${entry.id}`;

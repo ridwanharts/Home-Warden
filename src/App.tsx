@@ -24,6 +24,7 @@ import {
   remoteSaveRoom,
   remoteDeleteRoom,
   remoteDeleteInventoryItem,
+  remoteDeleteZone,
   uploadLocalDataToCloud,
   saveUserDoc,
 } from './services/firestoreSync';
@@ -92,30 +93,22 @@ export default function App() {
     };
   }, [user]);
 
-  // 3. Local Cache Persistence (For Offline Guest Work)
+  // 3. Local Cache Persistence (For Offline Fallback & Guest Work)
   useEffect(() => {
-    if (!user) {
-      localStorage.setItem('warden_zones', JSON.stringify(zones));
-    }
-  }, [zones, user]);
+    localStorage.setItem('warden_zones', JSON.stringify(zones));
+  }, [zones]);
 
   useEffect(() => {
-    if (!user) {
-      localStorage.setItem('warden_inventory', JSON.stringify(inventory));
-    }
-  }, [inventory, user]);
+    localStorage.setItem('warden_inventory', JSON.stringify(inventory));
+  }, [inventory]);
 
   useEffect(() => {
-    if (!user) {
-      localStorage.setItem('warden_history', JSON.stringify(history));
-    }
-  }, [history, user]);
+    localStorage.setItem('warden_history', JSON.stringify(history));
+  }, [history]);
 
   useEffect(() => {
-    if (!user) {
-      localStorage.setItem('warden_rooms', JSON.stringify(rooms));
-    }
-  }, [rooms, user]);
+    localStorage.setItem('warden_rooms', JSON.stringify(rooms));
+  }, [rooms]);
 
   // Auth Handlers
   const handleSignIn = async () => {
@@ -228,6 +221,31 @@ export default function App() {
     }
   };
 
+  const handleAddZone = (zoneData: Omit<MaintenanceZone, 'id'>) => {
+    const newZone: MaintenanceZone = {
+      ...zoneData,
+      id: 'zone_' + Math.random().toString(36).substring(2, 9)
+    };
+    setZones(prev => [...prev, newZone]);
+    if (user) {
+      remoteSaveZone(user.uid, newZone);
+    }
+  };
+
+  const handleUpdateZone = (updatedZone: MaintenanceZone) => {
+    setZones(prev => prev.map(z => z.id === updatedZone.id ? updatedZone : z));
+    if (user) {
+      remoteSaveZone(user.uid, updatedZone);
+    }
+  };
+
+  const handleDeleteZone = (zoneId: string) => {
+    setZones(prev => prev.filter(z => z.id !== zoneId));
+    if (user) {
+      remoteDeleteZone(user.uid, zoneId);
+    }
+  };
+
   const handleAddRoom = (roomData: Omit<HouseRoom, 'id' | 'createdAt' | 'items'>) => {
     const newRoom: HouseRoom = {
       ...roomData,
@@ -267,6 +285,9 @@ export default function App() {
             history={history}
             onInspect={handleInspectSistem}
             onNavigate={(view) => setCurrentView(view)}
+            onAddZone={handleAddZone}
+            onUpdateZone={handleUpdateZone}
+            onDeleteZone={handleDeleteZone}
           />
         );
       case 'rooms':
@@ -274,7 +295,23 @@ export default function App() {
       case 'warehouse':
         return <Warehouse inventory={inventory} onUpdateQuantity={updateInventoryQuantity} onAddItem={addInventoryItem} onUpdateItem={updateInventoryItem} onDeleteItem={deleteInventoryItem} />;
       case 'repair':
-        return <RepairMentor onSaveResult={saveRepairResult} />;
+        return (
+          <RepairMentor 
+            onSaveResult={saveRepairResult} 
+            onAddShoppingItem={(name) => {
+              addInventoryItem({
+                name,
+                category: 'Bahan Perbaikan',
+                type: 'Shopping',
+                quantity: 1,
+                unit: 'Pcs',
+                health: 100,
+                estimatedPrice: 0,
+                isBought: false
+              });
+            }}
+          />
+        );
       case 'history':
         return <History history={history} onDeleteHistory={deleteRepairResult} />;
       default:

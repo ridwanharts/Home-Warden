@@ -11,6 +11,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 interface Props {
   onSaveResult: (result: RepairDiagnosis) => void;
+  onAddShoppingItem?: (name: string) => void;
 }
 
 // Option Lists for the Guided Wizard
@@ -46,9 +47,10 @@ const urgencies = [
   { id: 'casual', label: '☕ Ringan / Kapan-kapan', desc: 'Bisa dikerjakan senggang pas hari libur sambil ngopi santai', color: 'text-emerald-400 border-emerald-500/20 bg-emerald-500/5 hover:border-emerald-500/40' },
 ];
 
-export default function RepairMentor({ onSaveResult }: Props) {
+export default function RepairMentor({ onSaveResult, onAddShoppingItem }: Props) {
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<RepairDiagnosis | null>(null);
+  const [addedShoppingIndexes, setAddedShoppingIndexes] = useState<number[]>([]);
 
   // Mode: 'guide' (Step-by-step Wizard) or 'free' (Manual free-form write-up)
   const [inputMode, setInputMode] = useState<'guide' | 'free'>('guide');
@@ -529,12 +531,34 @@ export default function RepairMentor({ onSaveResult }: Props) {
               </h4>
               <ul className="space-y-2">
                 {result.shoppingList && result.shoppingList.length > 0 ? (
-                  result.shoppingList.map((item, i) => (
-                    <li key={i} className="flex items-start gap-2.5 text-xs text-slate-300">
-                      <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-1.5 shrink-0" />
-                      <span>{item}</span>
-                    </li>
-                  ))
+                  result.shoppingList.map((item, i) => {
+                    const isAdded = addedShoppingIndexes.includes(i);
+                    return (
+                      <li key={i} className="flex items-center justify-between gap-2.5 text-xs text-slate-300 bg-slate-950/20 p-2 rounded-lg border border-slate-900">
+                        <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <div className="w-1.5 h-1.5 bg-amber-500 rounded-full mt-1.5 shrink-0" />
+                          <span className="truncate">{item}</span>
+                        </div>
+                        {onAddShoppingItem && (
+                          <button
+                            type="button"
+                            disabled={isAdded}
+                            onClick={() => {
+                              onAddShoppingItem(item);
+                              setAddedShoppingIndexes([...addedShoppingIndexes, i]);
+                            }}
+                            className={`py-1 px-2.5 rounded-md font-extrabold text-[9px] uppercase tracking-wider transition-all select-none whitespace-nowrap cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${
+                              isAdded 
+                                ? 'bg-slate-950 text-slate-600 border border-slate-900'
+                                : 'bg-indigo-600/20 text-indigo-400 border border-indigo-500/30 hover:bg-indigo-600/40 hover:text-white'
+                            }`}
+                          >
+                            {isAdded ? '✓ Ditambahkan' : '+ Belanja'}
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })
                 ) : (
                   <li className="text-xs text-slate-500 italic">Tidak ada bahan belanja tambahan yang diperlukan</li>
                 )}
@@ -582,7 +606,10 @@ export default function RepairMentor({ onSaveResult }: Props) {
 
           <button 
             type="button"
-            onClick={() => setResult(null)}
+            onClick={() => {
+              setResult(null);
+              setAddedShoppingIndexes([]);
+            }}
             className="w-full bg-slate-900 border border-slate-850 text-slate-400 py-3.5 rounded-2xl font-bold text-xs hover:border-amber-500 hover:text-white transition-all uppercase tracking-widest mt-4"
           >
             Mendapatkan Solusi untuk Masalah Lain

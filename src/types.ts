@@ -1,4 +1,4 @@
-export type ItemType = 'Tool' | 'Consumable';
+export type ItemType = 'Tool' | 'Consumable' | 'Shopping';
 
 export interface InventoryItem {
   id: string;
@@ -11,6 +11,8 @@ export interface InventoryItem {
   lastUpdated: string;
   imageUrl?: string;
   entryDate?: string; // Tanggal pembelian atau masuk gudang
+  estimatedPrice?: number; // Estimasi Harga (Rupiah)
+  isBought?: boolean; // Sudah Dibeli?
 }
 
 export interface MaintenanceZone {

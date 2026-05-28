@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { InventoryItem } from '../types';
-import { Package, Plus, Minus, Search, Wrench, Pipette as Tape, AlertTriangle, X, Camera, Image, Trash2, ArrowLeft, Check, Filter } from 'lucide-react';
+import { InventoryItem, ItemType } from '../types';
+import { Package, Plus, Minus, Search, Wrench, Pipette as Tape, AlertTriangle, X, Camera, Image, Trash2, ArrowLeft, Check, Filter, Share2, Copy } from 'lucide-react';
 import { motion } from 'motion/react';
 
 interface Props {
@@ -216,6 +216,7 @@ const getCategoryColor = (category: string) => {
 };
 
 export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUpdateItem, onDeleteItem }: Props) {
+  const [subTab, setSubTab] = useState<'STOCK' | 'SHOPPING'>('STOCK');
   const [searchTerm, setSearchTerm] = useState('');
   const [showSearch, setShowSearch] = useState(false);
   const [showFilter, setShowFilter] = useState(false);
@@ -229,22 +230,37 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
   // Create Form State
   const [name, setName] = useState('');
   const [category, setCategory] = useState('Hardware');
-  const [type, setType] = useState<'Tool' | 'Consumable'>('Tool');
+  const [type, setType] = useState<ItemType>('Tool');
   const [quantity, setQuantity] = useState(1);
   const [unit, setUnit] = useState('Pcs');
   const [health, setHealth] = useState(100);
   const [imageUrl, setImageUrl] = useState('');
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().split('T')[0]);
 
+  // Shopping Specific Fields (Point 3)
+  const [estimatedPrice, setEstimatedPrice] = useState(0);
+  const [isBought, setIsBought] = useState(false);
+
   // Edit Form State
   const [editName, setEditName] = useState('');
   const [editCategory, setEditCategory] = useState('Hardware');
-  const [editType, setEditType] = useState<'Tool' | 'Consumable'>('Tool');
+  const [editType, setEditType] = useState<ItemType>('Tool');
   const [editQuantity, setEditQuantity] = useState(1);
   const [editUnit, setEditUnit] = useState('Pcs');
   const [editHealth, setEditHealth] = useState(100);
   const [editImageUrl, setEditImageUrl] = useState('');
   const [editEntryDate, setEditEntryDate] = useState('');
+  const [editEstimatedPrice, setEditEstimatedPrice] = useState(0);
+  const [editIsBought, setEditIsBought] = useState(false);
+
+  // Auto-set default type on subtab shift to save user typing
+  useEffect(() => {
+    if (subTab === 'SHOPPING') {
+      setType('Shopping');
+    } else {
+      setType('Tool');
+    }
+  }, [subTab]);
 
   // Handle setting active edited item
   const startEditing = (item: InventoryItem) => {
@@ -257,9 +273,64 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
     setEditHealth(item.health);
     setEditImageUrl(item.imageUrl || '');
     setEditEntryDate(item.entryDate || new Date().toISOString().split('T')[0]);
+    setEditEstimatedPrice(item.estimatedPrice || 0);
+    setEditIsBought(item.isBought || false);
+  };
+
+  // Salin teks belanjaan ke clipboard berformat rapi siap kirim ke WhatsApp (Point 3)
+  const shareWhatsApp = () => {
+    const list = inventory.filter(item => item.type === 'Shopping');
+    if (list.length === 0) {
+      alert("Daftar Belanja kosong.");
+      return;
+    }
+    
+    let text = `🛒 *DAFTAR BELANJA - RUMAH BAPAK*\n`;
+    text += `Tanggal: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}\n`;
+    text += `=========================\n\n`;
+    
+    list.forEach((item, index) => {
+      const icon = item.isBought ? '✅' : '⬜';
+      const priceText = item.estimatedPrice ? `(Est: Rp ${item.estimatedPrice.toLocaleString('id-ID')})` : '';
+      text += `${index + 1}. ${icon} *${item.name}* - ${item.quantity} ${item.unit} ${priceText}\n`;
+    });
+    
+    const unboughtSum = list.filter(item => !item.isBought).reduce((sum, item) => sum + (item.quantity * (item.estimatedPrice || 0)), 0);
+    text += `\n=========================\n`;
+    text += `💰 *Sisa Anggaran Belanja:* Rp ${unboughtSum.toLocaleString('id-ID')}\n`;
+    text += `_Kirim langsung dari Aplikasi Rumah Bapak_`;
+    
+    navigator.clipboard.writeText(text);
+    alert("Daftar Belanja disalin ke clipboard! Silakan paste langsung ke WhatsApp toko material atau keluarga.");
+  };
+
+  // Batch memindahkan item belanjaan yang lunas ke stok fisik gudang (Point 3)
+  const promoteCheckedItems = () => {
+    const bought = inventory.filter(item => item.type === 'Shopping' && item.isBought);
+    if (bought.length === 0) {
+      alert("Tidak ada item belanjaan dengan status 'Sudah Dibeli' yang bisa dipindahkan.");
+      return;
+    }
+    if (confirm(`Pindahkan ${bought.length} barang belanjaan yang lunas ke daftar persediaan fisik Gudang?`)) {
+      bought.forEach(item => {
+        onUpdateItem({
+          ...item,
+          type: 'Consumable', // default as Consumable, bapak can change to Tool via edit if desired
+          entryDate: new Date().toISOString().split('T')[0]
+        });
+      });
+      alert(`${bought.length} barang berhasil diregistrasikan ke Gudang Utama!`);
+    }
   };
 
   const filteredItems = inventory.filter(item => {
+    // subTab segregation (Point 3)
+    if (subTab === 'STOCK') {
+      if (item.type === 'Shopping') return false;
+    } else {
+      if (item.type !== 'Shopping') return false;
+    }
+
     const matchesSearch = !searchTerm.trim() || 
       item.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.category.toLowerCase().includes(searchTerm.toLowerCase());
@@ -294,16 +365,20 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
       unit,
       health: type === 'Tool' ? health : 100,
       imageUrl: imageUrl || undefined,
-      entryDate: entryDate || undefined
+      entryDate: entryDate || undefined,
+      estimatedPrice: type === 'Shopping' ? estimatedPrice : undefined,
+      isBought: type === 'Shopping' ? isBought : undefined
     });
 
     // Reset Form State
     setName('');
     setCategory('Hardware');
-    setType('Tool');
+    setType(subTab === 'SHOPPING' ? 'Shopping' : 'Tool');
     setQuantity(1);
     setUnit('Pcs');
     setHealth(100);
+    setEstimatedPrice(0);
+    setIsBought(false);
     setImageUrl('');
     setEntryDate(new Date().toISOString().split('T')[0]);
     setIsAdding(false);
@@ -322,7 +397,9 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
       unit: editUnit,
       health: editType === 'Tool' ? editHealth : 100,
       imageUrl: editImageUrl || undefined,
-      entryDate: editEntryDate || undefined
+      entryDate: editEntryDate || undefined,
+      estimatedPrice: editType === 'Shopping' ? editEstimatedPrice : undefined,
+      isBought: editType === 'Shopping' ? editIsBought : undefined
     });
 
     setEditingItem(null);
@@ -403,12 +480,12 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
 
             <div className="space-y-2">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tipe Item</label>
-              <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
                 <button
                   type="button"
                   onClick={() => setEditType('Tool')}
-                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    editType === 'Tool' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                  className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    editType === 'Tool' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   Alat (Tool)
@@ -416,14 +493,55 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
                 <button
                   type="button"
                   onClick={() => setEditType('Consumable')}
-                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    editType === 'Consumable' ? 'bg-indigo-600 text-white' : 'text-slate-500 hover:text-slate-300'
+                  className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    editType === 'Consumable' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
-                  Bahan (Consumable)
+                  Bahan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditType('Shopping')}
+                  className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    editType === 'Shopping' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  Belanja
                 </button>
               </div>
             </div>
+
+            {editType === 'Shopping' && (
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-950/45 rounded-xl border border-slate-850">
+                <div className="space-y-1">
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
+                    Estimasi Harga Satuan
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 text-[10px] text-slate-500 font-bold">Rp</span>
+                    <input
+                      type="number"
+                      value={editEstimatedPrice}
+                      onChange={e => setEditEstimatedPrice(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-slate-950 border border-slate-850 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4 pl-2">
+                  <input
+                    type="checkbox"
+                    id="editIsBought"
+                    checked={editIsBought}
+                    onChange={e => setEditIsBought(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-slate-800 text-indigo-650 focus:ring-indigo-500 bg-slate-950 cursor-pointer"
+                  />
+                  <label htmlFor="editIsBought" className="text-[10px] font-bold text-slate-350 uppercase tracking-wide cursor-pointer select-none leading-none">
+                    Sudah Dibeli
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 items-end">
               <div>
@@ -440,7 +558,7 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
 
               {editType === 'Tool' ? (
                 <div>
-                  <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+                   <div className="flex justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
                     <span>Kondisi</span>
                     <span className="text-indigo-400">{editHealth}%</span>
                   </div>
@@ -452,6 +570,10 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
                     onChange={e => setEditHealth(parseInt(e.target.value))}
                     className="w-full accent-indigo-500 cursor-pointer py-3"
                   />
+                </div>
+              ) : editType === 'Shopping' ? (
+                <div className="text-[10px] text-slate-500 font-medium italic pb-3">
+                  Pindahkan item/stok ini ke logs gudang jika sudah dibeli
                 </div>
               ) : (
                 <div className="text-[10px] text-slate-500 font-medium italic pb-3">
@@ -514,6 +636,42 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
 
   return (
     <div className="space-y-4 pb-16">
+      {/* Sub-tab selection menu for STOCK or SHOPPING list */}
+      <div className="flex gap-2 p-1 bg-slate-900/60 rounded-xl border border-slate-800/80 mb-1">
+        <button
+          onClick={() => {
+            setSubTab('STOCK');
+            setIsAdding(false);
+          }}
+          className={`flex-1 py-2 px-3 text-xs font-bold uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+            subTab === 'STOCK'
+              ? 'bg-indigo-600 text-white shadow-lg'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+          }`}
+        >
+          <Package size={13} /> Stok Gudang
+        </button>
+        <button
+          onClick={() => {
+            setSubTab('SHOPPING');
+            setIsAdding(false);
+          }}
+          className={`flex-1 py-2 px-3 text-xs font-bold uppercase rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer relative ${
+            subTab === 'SHOPPING'
+              ? 'bg-amber-500 text-slate-950 shadow-lg'
+              : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/30'
+          }`}
+        >
+          <Wrench size={13} className={inventory.some(i => i.type === 'Shopping' && !i.isBought) ? "animate-pulse" : ""} /> 
+          Daftar Belanja
+          {inventory.filter(item => item.type === 'Shopping' && !item.isBought).length > 0 && (
+            <span className="bg-rose-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full min-w-[15px] text-center shrink-0">
+              {inventory.filter(item => item.type === 'Shopping' && !item.isBought).length}
+            </span>
+          )}
+        </button>
+      </div>
+
       {/* Header & Search */}
       <section className="space-y-3">
         <div className="flex items-center justify-between">
@@ -757,12 +915,12 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
 
             <div className="space-y-2">
               <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest">Tipe Item</label>
-              <div className="grid grid-cols-2 gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <div className="grid grid-cols-3 gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800">
                 <button
                   type="button"
                   onClick={() => setType('Tool')}
-                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    type === 'Tool' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-500 hover:text-slate-300'
+                  className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    type === 'Tool' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
                   Alat (Tool)
@@ -770,14 +928,55 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
                 <button
                   type="button"
                   onClick={() => setType('Consumable')}
-                  className={`py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all cursor-pointer ${
-                    type === 'Consumable' ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20' : 'text-slate-500 hover:text-slate-300'
+                  className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    type === 'Consumable' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
                   }`}
                 >
-                  Bahan (Consumable)
+                  Bahan
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setType('Shopping')}
+                  className={`py-2 rounded-lg text-[9px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                    type === 'Shopping' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  Belanja
                 </button>
               </div>
             </div>
+
+            {type === 'Shopping' && (
+              <div className="grid grid-cols-2 gap-3 p-3.5 bg-slate-950/45 rounded-xl border border-slate-850">
+                <div className="space-y-1">
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase tracking-widest leading-none mb-1">
+                    Estimasi Harga Satuan
+                  </label>
+                  <div className="relative flex items-center">
+                    <span className="absolute left-3 text-[10px] text-slate-500 font-bold">Rp</span>
+                    <input
+                      type="number"
+                      value={estimatedPrice}
+                      onChange={e => setEstimatedPrice(Math.max(0, parseInt(e.target.value) || 0))}
+                      className="w-full bg-slate-950 border border-slate-850 rounded-lg pl-8 pr-2.5 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-indigo-500"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 mt-4 pl-2 font-none">
+                  <input
+                    type="checkbox"
+                    id="addIsBought"
+                    checked={isBought}
+                    onChange={e => setIsBought(e.target.checked)}
+                    className="w-3.5 h-3.5 rounded border-slate-850 text-indigo-650 focus:ring-indigo-500 bg-slate-950 cursor-pointer"
+                  />
+                  <label htmlFor="addIsBought" className="text-[10px] font-bold text-slate-350 uppercase tracking-wide cursor-pointer select-none leading-none">
+                    Sudah Dibeli
+                  </label>
+                </div>
+              </div>
+            )}
 
             <div className="grid grid-cols-2 gap-3 items-end">
               <div>
@@ -788,7 +987,7 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
                   required
                   value={quantity}
                   onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none focus:border-indigo-500 transition-colors"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-sm text-slate-100 focus:outline-none"
                 />
               </div>
 
@@ -806,6 +1005,10 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
                     onChange={e => setHealth(parseInt(e.target.value))}
                     className="w-full accent-indigo-500 cursor-pointer py-3 h-2"
                   />
+                </div>
+              ) : type === 'Shopping' ? (
+                <div className="text-[10px] text-slate-500 font-medium italic pb-3">
+                  Ditambahkan ke Daftar Belanja
                 </div>
               ) : (
                 <div className="text-[10px] text-slate-500 font-medium italic pb-3">
@@ -838,95 +1041,204 @@ export default function Warehouse({ inventory, onUpdateQuantity, onAddItem, onUp
         </motion.form>
       )}
 
+      {/* Simplified, Beautiful Inventory List & Cards (Point 3) */}
+      {subTab === 'SHOPPING' && filteredItems.length > 0 && (
+        <div className="bg-slate-900/40 p-4.5 rounded-2xl border border-slate-850 space-y-4 text-left">
+          <div className="grid grid-cols-2 gap-3.5 font-sans">
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-amber-500/70 uppercase tracking-widest block font-sans leading-none mb-1">Sisa Anggaran Belanja</span>
+              <span className="text-xs font-extrabold text-slate-100 font-mono tracking-wide">
+                Rp {inventory.filter(item => item.type === 'Shopping' && !item.isBought).reduce((sum, i) => sum + (i.quantity * (i.estimatedPrice || 0)), 0).toLocaleString('id-ID')}
+              </span>
+            </div>
+            <div className="space-y-0.5">
+              <span className="text-[9px] font-bold text-emerald-500/70 uppercase tracking-widest block font-sans leading-none mb-1">Realisasi (Terbeli)</span>
+              <span className="text-xs font-extrabold text-slate-100 font-mono tracking-wide">
+                Rp {inventory.filter(item => item.type === 'Shopping' && item.isBought).reduce((sum, i) => sum + (i.quantity * (i.estimatedPrice || 0)), 0).toLocaleString('id-ID')}
+              </span>
+            </div>
+          </div>
+
+          <div className="space-y-1.5 border-t border-slate-850 pt-2.5">
+            <div className="flex justify-between items-center text-[9px] font-extrabold uppercase tracking-wide text-slate-500">
+              <span>Rencana Realisasi</span>
+              <span className="text-amber-400 font-mono">
+                {inventory.filter(item => item.type === 'Shopping' && item.isBought).length} Dari {inventory.filter(item => item.type === 'Shopping').length} Barang Lunas
+              </span>
+            </div>
+            {inventory.filter(item => item.type === 'Shopping').length > 0 && (
+              <div className="w-full bg-slate-950 h-1 rounded-full overflow-hidden border border-slate-900">
+                <div 
+                  className="bg-amber-400 h-full transition-all duration-500" 
+                  style={{ 
+                    width: `${(inventory.filter(item => item.type === 'Shopping' && item.isBought).length / inventory.filter(item => item.type === 'Shopping').length) * 100}%` 
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-2.5 pt-2 border-t border-slate-850">
+            <button
+              onClick={shareWhatsApp}
+              className="py-2.5 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold rounded-xl text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 shadow-md shadow-emerald-500/10"
+            >
+              <Share2 size={12} /> Bagikan Ke WA
+            </button>
+            <button
+              onClick={promoteCheckedItems}
+              disabled={inventory.filter(item => item.type === 'Shopping' && item.isBought).length === 0}
+              className={`py-2.5 px-3 rounded-xl text-[9px] font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 cursor-pointer transition-all active:scale-95 ${
+                inventory.filter(item => item.type === 'Shopping' && item.isBought).length === 0
+                  ? 'bg-slate-950 text-slate-600 border border-slate-900 cursor-not-allowed'
+                  : 'bg-indigo-650 hover:bg-indigo-505 text-white shadow-md shadow-indigo-600/10'
+              }`}
+            >
+              <Check size={12} /> Pindahkan Ke Gudang
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Simplified, Beautiful Inventory List & Cards */}
       <div className="space-y-3">
-        {filteredItems.map((item) => (
-          <div 
-            key={item.id}
-            onClick={() => startEditing(item)}
-            className="glass-card !p-3.5 !pl-5 transition-all hover:bg-slate-900/60 active:scale-[0.99] cursor-pointer group flex items-center justify-between gap-4 border border-slate-800/80 hover:border-indigo-500/20 relative overflow-hidden"
-          >
-            {/* Color Strip/Ribbon representing Category */}
-            <div className={`absolute left-0 top-0 bottom-0 w-[5px] ${getCategoryColor(item.category)}`} />
-            {/* Visual Thumbnail & Metadata */}
-            <div className="flex items-center gap-3.5 min-w-0 flex-1">
-              {/* Photo representation */}
-              <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800/80 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
-                {item.imageUrl ? (
-                  <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                ) : item.type === 'Tool' ? (
-                  <Wrench size={18} className="text-indigo-400/80" />
+        {filteredItems.map((item) => {
+          const isShopping = item.type === 'Shopping';
+          return (
+            <div 
+              key={item.id}
+              onClick={() => startEditing(item)}
+              className={`glass-card !p-3.5 !pl-5 transition-all hover:bg-slate-900/60 active:scale-[0.99] cursor-pointer group flex items-center justify-between gap-4 border relative overflow-hidden text-left ${
+                isShopping && item.isBought 
+                  ? 'border-emerald-500/20 bg-emerald-950/5 opacity-70' 
+                  : 'border-slate-800/80 hover:border-indigo-500/20'
+              }`}
+            >
+              {/* Color Strip/Ribbon representing Category */}
+              <div className={`absolute left-0 top-0 bottom-0 w-[5px] ${isShopping && item.isBought ? 'bg-emerald-500' : getCategoryColor(item.category)}`} />
+              {/* Visual Thumbnail & Metadata */}
+              <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                {isShopping ? (
+                  <div 
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onUpdateItem({
+                        ...item,
+                        isBought: !item.isBought
+                      });
+                    }}
+                    className={`w-5 h-5 rounded-md border flex items-center justify-center cursor-pointer transition-all shrink-0 ${
+                      item.isBought 
+                        ? 'bg-emerald-500 border-emerald-500 text-slate-950' 
+                        : 'border-slate-700 hover:border-amber-400 bg-slate-950'
+                    }`}
+                  >
+                    {item.isBought && <Check size={13} className="stroke-[3]" />}
+                  </div>
                 ) : (
-                  <Tape size={18} className="text-emerald-400/80" />
+                  /* Photo representation */
+                  <div className="w-12 h-12 rounded-xl bg-slate-950 border border-slate-800/80 overflow-hidden flex-shrink-0 flex items-center justify-center relative">
+                    {item.imageUrl ? (
+                      <img src={item.imageUrl} alt={item.name} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                    ) : item.type === 'Tool' ? (
+                      <Wrench size={18} className="text-indigo-400/80" />
+                    ) : (
+                      <Tape size={18} className="text-emerald-400/80" />
+                    )}
+                  </div>
                 )}
+
+                {/* Identity & stats info */}
+                <div className="min-w-0 flex-1">
+                  <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block leading-none mb-1">
+                    {item.category}
+                  </span>
+                  <h4 className={`font-bold text-sm text-slate-100 group-hover:text-indigo-400 transition-colors truncate ${isShopping && item.isBought ? 'line-through text-slate-500 grayscale' : ''}`}>
+                    {item.name}
+                  </h4>
+                  <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
+                    {isShopping ? (
+                      <span className="text-[10px] font-bold text-slate-400 font-mono">
+                        {item.estimatedPrice ? `Est: Rp ${item.estimatedPrice.toLocaleString('id-ID')}` : 'Belum ada estimasi'}
+                      </span>
+                    ) : (
+                      <>
+                        <span className={`text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest ${
+                          item.type === 'Tool' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/10' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10'
+                        }`}>
+                          {item.type === 'Tool' ? 'ALAT' : 'BAHAN'}
+                        </span>
+                        {item.type === 'Tool' && (
+                          <span className={`text-[9px] font-bold ${item.health > 80 ? 'text-emerald-500' : item.health > 40 ? 'text-amber-500' : 'text-rose-500'}`}>
+                            {item.health}% Kondisi
+                          </span>
+                        )}
+                        {item.entryDate && (
+                          <span className="text-[9px] font-semibold text-slate-500/80 flex items-center gap-1 whitespace-nowrap">
+                            • Masuk: {item.entryDate}
+                          </span>
+                        )}
+                      </>
+                    )}
+                  </div>
+                </div>
               </div>
 
-              {/* Identity & stats info */}
-              <div className="min-w-0 flex-1">
-                <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest block leading-none mb-1">
-                  {item.category}
-                </span>
-                <h4 className="font-bold text-sm text-slate-100 group-hover:text-indigo-400 transition-colors truncate">
-                  {item.name}
-                </h4>
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1">
-                  <span className={`text-[8px] px-1.5 py-0.5 rounded font-extrabold uppercase tracking-widest ${
-                    item.type === 'Tool' ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/10' : 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/10'
-                  }`}>
-                    {item.type === 'Tool' ? 'ALAT' : 'BAHAN'}
-                  </span>
-                  {item.type === 'Tool' && (
-                    <span className={`text-[9px] font-bold ${item.health > 80 ? 'text-emerald-500' : item.health > 40 ? 'text-amber-500' : 'text-rose-500'}`}>
-                      {item.health}% Kondisi
+              {/* Incremental controllers with safety isolation */}
+              <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
+                {isShopping ? (
+                  <div className="text-right flex flex-col items-end justify-center min-w-[70px]">
+                    <span className="text-sm font-bold text-slate-100 font-mono">
+                      Rp {((item.quantity || 1) * (item.estimatedPrice || 0)).toLocaleString('id-ID')}
                     </span>
-                  )}
-                  {item.entryDate && (
-                    <span className="text-[9px] font-semibold text-slate-500/80 flex items-center gap-1 whitespace-nowrap">
-                      • Masuk: {item.entryDate}
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">
+                      Total ({item.quantity} {item.unit})
                     </span>
-                  )}
+                  </div>
+                ) : (
+                  <div className="text-right flex flex-col items-end justify-center">
+                    <span className="text-lg font-light text-slate-100 tracking-tight leading-none">{item.quantity}</span>
+                    <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">{item.unit}</span>
+                  </div>
+                )}
+
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
+                  <button 
+                    onClick={() => onUpdateQuantity(item.id, -1)}
+                    className="p-1.5 hover:bg-slate-900 text-slate-500 hover:text-white transition-all rounded-lg cursor-pointer"
+                    title="Kurangi Stok"
+                  >
+                    <Minus size={13} />
+                  </button>
+                  <div className="w-px h-3.5 bg-slate-800" />
+                  <button 
+                    onClick={() => onUpdateQuantity(item.id, 1)}
+                    className="p-1.5 hover:bg-slate-900 text-slate-500 hover:text-white transition-all rounded-lg cursor-pointer"
+                    title="Tambah Stok"
+                  >
+                    <Plus size={13} />
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* Incremental controllers with safety isolation */}
-            <div className="flex items-center gap-3" onClick={(e) => e.stopPropagation()}>
-              <div className="text-right flex flex-col items-end justify-center">
-                <span className="text-lg font-light text-slate-100 tracking-tight leading-none">{item.quantity}</span>
-                <span className="text-[8px] font-bold text-slate-500 uppercase tracking-wider">{item.unit}</span>
-              </div>
-
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800/80">
-                <button 
-                  onClick={() => onUpdateQuantity(item.id, -1)}
-                  className="p-1.5 hover:bg-slate-900 text-slate-500 hover:text-white transition-all rounded-lg cursor-pointer"
-                  title="Kurangi Stok"
-                >
-                  <Minus size={13} />
-                </button>
-                <div className="w-px h-3.5 bg-slate-800" />
-                <button 
-                  onClick={() => onUpdateQuantity(item.id, 1)}
-                  className="p-1.5 hover:bg-slate-900 text-slate-500 hover:text-white transition-all rounded-lg cursor-pointer"
-                  title="Tambah Stok"
-                >
-                  <Plus size={13} />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
+          );
+        })}
 
         {filteredItems.length === 0 && (
           <div className="text-center py-16 bg-slate-900/20 border-2 border-dashed border-slate-800 rounded-3xl opacity-50">
             <Package className="mx-auto mb-4 text-slate-700 font-thin" size={48} />
-            <p className="text-slate-400 text-sm italic">Stok untuk "{searchTerm}" tidak tersedia.</p>
+            <p className="text-slate-400 text-sm italic">
+              {subTab === 'SHOPPING'
+                ? 'Daftar belanjaan Anda kosong. Silakan gunakan AI Mentor atau mendaftarkan barang manual.'
+                : `Stok untuk "${searchTerm}" tidak tersedia`
+              }
+            </p>
           </div>
         )}
       </div>
 
       {/* Warning */}
-      {inventory.some(i => i.type === 'Consumable' && i.quantity < 5) && (
+      {subTab === 'STOCK' && inventory.some(i => i.type === 'Consumable' && i.quantity < 5) && (
         <div className="bg-indigo-500/10 border border-indigo-500/20 p-4 rounded-2xl flex items-center gap-4">
           <div className="w-2 h-2 bg-indigo-500 rounded-full shadow-[0_0_8px_rgba(99,102,241,0.8)] animate-pulse" />
           <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">Peringatan: Beberapa stok menipis</p>
